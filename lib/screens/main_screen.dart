@@ -1,7 +1,8 @@
+import 'package:control_financiero/screens/reporte_screen.dart';
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
-import 'persona_screen.dart';
-import 'cuenta_screen.dart';
+import 'persona/persona_screen.dart';
+import 'cuenta_corriente/cuenta_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -19,7 +20,7 @@ class _MainScreenState extends State<MainScreen> {
     const DashboardScreen(),
     const CuentasScreen(),
     const PersonasScreen(),
-    const Center(child: Text('Configuración u otro apartado aquí')), // Pantalla de relleno para el 3er botón
+    const ReportesScreen(), // Pantalla de relleno para el 3er botón
   ];
   
   // Método que se llama al tocar un botón de la barra inferior

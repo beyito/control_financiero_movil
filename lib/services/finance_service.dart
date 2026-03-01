@@ -42,7 +42,16 @@ class FinanceService {
       throw Exception('Error al cargar los datos del dashboard');
     }
   }
-
+  // Obtener todas las transacciones
+  Future<List<Transaccion>> getTransacciones() async {
+    final response = await _api.get('finance/transaccion/'); // Ajusta tu URL
+    if (response.statusCode == 200) {
+      List<dynamic> jsonList = jsonDecode(response.body);
+      return jsonList.map((item) => Transaccion.fromJson(item)).toList();
+    } else {
+      throw Exception('Error al cargar transacciones');
+    }
+  }
   // Método para crear una nueva transacción
   Future<bool> crearTransaccion(Map<String, dynamic> datos) async {
     // IMPORTANTE: Asegúrate de que esta URL acepte peticiones POST en tu Django
@@ -160,5 +169,30 @@ class FinanceService {
     }
   }
 
+  // Anular Transacción
+  Future<bool> eliminarTransaccion(int idTransaccion) async {
+    // Usamos tu método genérico de API (si tienes .delete configurado) 
+    // Si no tienes un método .delete en tu ApiService, usa http.delete directamente con tu token.
+    final response = await _api.delete('finance/transaccion/$idTransaccion/');
+    
+    // Django REST Framework devuelve 204 No Content cuando un DELETE es exitoso
+    if (response.statusCode == 204 || response.statusCode == 200) {
+      return true;
+    }
+    return false;
+  }
+
+  // Anular Transacción
+  Future<bool> eliminarMovimiento(int idMovimientoCuenta) async {
+    // Usamos tu método genérico de API (si tienes .delete configurado) 
+    // Si no tienes un método .delete en tu ApiService, usa http.delete directamente con tu token.
+    final response = await _api.delete('finance/movimientocuenta/$idMovimientoCuenta/');
+    
+    // Django REST Framework devuelve 204 No Content cuando un DELETE es exitoso
+    if (response.statusCode == 204 || response.statusCode == 200) {
+      return true;
+    }
+    return false;
+  }
 }
 

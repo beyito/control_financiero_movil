@@ -6,6 +6,7 @@ class MovimientoCuenta {
   final DateTime? fechaRegistro;
   final double montoInicial;
   final double saldoPendiente;
+  final String? concepto; // <--- Nuevo
 
   MovimientoCuenta({
     required this.idMovimientoCuenta,
@@ -15,6 +16,7 @@ class MovimientoCuenta {
     this.fechaRegistro,
     required this.montoInicial,
     required this.saldoPendiente,
+    this.concepto,
   });
 
   factory MovimientoCuenta.fromJson(Map<String, dynamic> json) {
@@ -28,6 +30,7 @@ class MovimientoCuenta {
           : null,
       montoInicial: double.tryParse(json['monto_inicial'].toString()) ?? 0.0,
       saldoPendiente: double.tryParse(json['saldo_pendiente'].toString()) ?? 0.0,
+      concepto: json['concepto'],
     );
   }
 }

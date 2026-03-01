@@ -93,4 +93,60 @@ class AuthService {
       return false;
     }
   }
+
+  // Obtener los datos del perfil del usuario
+  Future<Map<String, dynamic>?> getPerfil() async {
+    // Asegúrate de que la URL coincida con la que pusiste en urls.py de Django
+    final url = Uri.parse('${Config.apiUrl}api/perfil/'); 
+    final token = await getAccessToken();
+
+    if (token == null) return null;
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Actualizar el perfil del usuario (PATCH)
+  Future<bool> actualizarPerfil(Map<String, dynamic> datos) async {
+    final url = Uri.parse('${Config.apiUrl}api/perfil/'); // Tu endpoint
+    final token = await getAccessToken();
+
+    if (token == null) return false;
+
+    try {
+      // Usamos PATCH para actualizar solo los campos que enviamos
+      final response = await http.patch(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(datos),
+      );
+
+      // 200 OK significa que se actualizó correctamente
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print('Error al actualizar: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      return false;
+    }
+  }
 }

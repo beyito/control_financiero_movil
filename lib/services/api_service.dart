@@ -55,4 +55,28 @@ class ApiService {
     }
     return response;
   }
+
+  // Método DELETE genérico (para eliminar gastos, ingresos, etc.)
+  Future<http.Response> delete(String endpoint) async {
+    String? token = await _authService.getAccessToken();
+    var url = Uri.parse('${Config.apiUrl}$endpoint');
+    
+    var response = await http.delete(
+      url, 
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}
+    );
+
+    if (response.statusCode == 401) {
+      bool refreshed = await _authService.refreshToken();
+      if (refreshed) {
+        token = await _authService.getAccessToken();
+        response = await http.delete(
+          url, 
+          headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'}
+        );
+      }
+    }
+   return response;
+  }
+
 }
