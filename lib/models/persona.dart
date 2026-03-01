@@ -20,7 +20,7 @@ class Persona {
       usuarioId: json['usuario'] is int ? json['usuario'] : json['usuario']['id'], 
       nombre: json['nombre'],
       fechaRegistro: json['fecha_registro'] != null 
-          ? DateTime.parse(json['fecha_registro']) 
+          ? DateTime.parse(json['fecha_registro']).toLocal() 
           : null,
       descripcion: json['descripcion'],
     );

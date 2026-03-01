@@ -44,7 +44,7 @@ class Transaccion {
       idTransaccion: json['id_transaccion'],
       monto: double.parse(json['monto'].toString()),
       concepto: json['concepto'],
-      fechaRegistro: json['fecha_registro'] != null ? DateTime.parse(json['fecha_registro']) : null,
+      fechaRegistro: json['fecha_registro'] != null ? DateTime.parse(json['fecha_registro']).toLocal() : null,
       subcategoriaId: json['subcategoria'],
       monedaId: json['moneda'],
       tipoTransaccionId: json['tipo_transaccion'],

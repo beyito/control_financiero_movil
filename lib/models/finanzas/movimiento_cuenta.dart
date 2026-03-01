@@ -26,7 +26,7 @@ class MovimientoCuenta {
       tipoMovimientoId: json['tipo_movimiento'],
       tipoMovimientoNombre: json['tipo_movimiento_nombre'], // Leemos el nombre
       fechaRegistro: json['fecha_registro'] != null 
-          ? DateTime.parse(json['fecha_registro']) 
+          ? DateTime.parse(json['fecha_registro']).toLocal() 
           : null,
       montoInicial: double.tryParse(json['monto_inicial'].toString()) ?? 0.0,
       saldoPendiente: double.tryParse(json['saldo_pendiente'].toString()) ?? 0.0,

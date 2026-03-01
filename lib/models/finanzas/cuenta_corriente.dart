@@ -23,7 +23,7 @@ class CuentaCorriente {
       monedaId: json['moneda'],
       monedaSimbolo: json['moneda_simbolo'], // Leemos el símbolo
       fechaRegistro: json['fecha_registro'] != null 
-          ? DateTime.parse(json['fecha_registro']) 
+          ? DateTime.parse(json['fecha_registro']).toLocal() 
           : null,
     );
   }
