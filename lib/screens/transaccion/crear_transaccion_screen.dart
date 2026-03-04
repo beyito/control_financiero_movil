@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../services/finance_service.dart';
 import '../../services/catalogo_service.dart';
 
@@ -8,9 +9,17 @@ import '../../models/catalogos/metodo_pago.dart';
 import '../../models/catalogos/moneda.dart';
 import '../../models/catalogos/tipo_transaccion.dart';
 import '../../models/persona.dart'; 
+import '../../models/finanzas/transaccion.dart'; // <-- ASEGÚRATE DE QUE ESTO ESTÉ IMPORTADO
 
 class CrearTransaccionScreen extends StatefulWidget {
-  const CrearTransaccionScreen({super.key});
+  final int? idMonedaPredeterminada; 
+  final Transaccion? transaccionAEditar; // <-- NUEVO: Recibimos la transacción a editar
+
+  const CrearTransaccionScreen({
+    super.key, 
+    this.idMonedaPredeterminada,
+    this.transaccionAEditar, // <-- NUEVO
+  });
 
   @override
   State<CrearTransaccionScreen> createState() => _CrearTransaccionScreenState();
@@ -30,6 +39,7 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
   int? _monedaSeleccionada;
   int? _tipoSeleccionado;   
   int? _personaSeleccionada;
+  DateTime _fechaSeleccionada = DateTime.now();
 
   bool _isSaving = false;   
   bool _isLoadingData = true; 
@@ -41,9 +51,22 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
   List<TipoTransaccion> _tiposTransaccion = [];
   List<Persona> _personas = []; 
 
+  // Variable de ayuda para saber si estamos editando
+  bool get _esEdicion => widget.transaccionAEditar != null; 
+
   @override
   void initState() {
     super.initState();
+    
+    // --- NUEVO: PRE-LLENAR CAMPOS DE TEXTO Y FECHA ---
+    if (_esEdicion) {
+      _montoController.text = widget.transaccionAEditar!.monto.toString();
+      _conceptoController.text = widget.transaccionAEditar!.concepto ?? '';
+      if (widget.transaccionAEditar!.fechaRegistro != null) {
+        _fechaSeleccionada = widget.transaccionAEditar!.fechaRegistro!;
+      }
+    }
+    
     _cargarListasDesplegables();
   }
 
@@ -57,7 +80,9 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
         _catalogoService.getTiposTransaccion(),
         _financeService.getPersonas(), 
       ]);
-
+      
+      if (!mounted) return;
+      
       setState(() {
         _categorias = respuestas[0] as List<Categoria>;
         _subcategorias = respuestas[1] as List<SubCategoria>;
@@ -66,25 +91,76 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
         _tiposTransaccion = respuestas[4] as List<TipoTransaccion>;
         _personas = respuestas[5] as List<Persona>; 
 
-        if (_monedas.isNotEmpty) _monedaSeleccionada = _monedas.first.idMoneda;
-        if (_tiposTransaccion.isNotEmpty) _tipoSeleccionado = _tiposTransaccion.first.idTipoTransaccion;
+        // --- NUEVO: PRE-SELECCIONAR LOS CHIPS Y DROPDOWNS ---
+        if (_esEdicion) {
+          final tx = widget.transaccionAEditar!;
+          
+          _monedaSeleccionada = tx.monedaId;
+          _tipoSeleccionado = tx.tipoTransaccionId;
+          _metodoSeleccionado = tx.metodoPagoId;
+          _personaSeleccionada = tx.personaId;
+          _subcategoriaSeleccionada = tx.subcategoriaId;
+          
+          // Magia: Para que el dropdown de subcategorías funcione, necesitamos
+          // encontrar a qué Categoría Padre pertenece la subcategoría seleccionada.
+          if (_subcategoriaSeleccionada != null) {
+            try {
+              final subcat = _subcategorias.firstWhere((s) => s.idSubcategoria == _subcategoriaSeleccionada);
+              _categoriaSeleccionada = subcat.categoriaId;
+            } catch (_) {} // Ignorar si no se encuentra
+          }
+          
+        } else {
+          // Lógica original para crear (Nuevo)
+          if (_monedas.isNotEmpty) {
+            _monedaSeleccionada = widget.idMonedaPredeterminada ?? _monedas.first.idMoneda;
+          }
+          if (_tiposTransaccion.isNotEmpty) {
+            _tipoSeleccionado = _tiposTransaccion.first.idTipoTransaccion;
+          }
+        }
 
         _isLoadingData = false;
       });
     } catch (e) {
-      setState(() => _isLoadingData = false);
       if (mounted) {
+        setState(() => _isLoadingData = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cargar listas: $e')));
       }
     }
   }
 
+  Future<void> _seleccionarFecha(BuildContext context) async {
+    final DateTime? seleccion = await showDatePicker(
+      context: context,
+      initialDate: _fechaSeleccionada, 
+      firstDate: DateTime(2020),       
+      lastDate: DateTime.now(),        
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: Color(0xFF11998E)),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (seleccion != null) {
+      final ahora = DateTime.now();
+      final fechaConHoraActual = DateTime(
+        seleccion.year, seleccion.month, seleccion.day,
+        ahora.hour, ahora.minute, ahora.second,
+      );
+      setState(() {
+        _fechaSeleccionada = fechaConHoraActual;
+      });
+    }
+  }
+
   String get _simboloMonedaActual {
     if (_monedas.isEmpty || _monedaSeleccionada == null) return '';
-    final moneda = _monedas.firstWhere(
-      (m) => m.idMoneda == _monedaSeleccionada, 
-      orElse: () => _monedas.first
-    );
+    final moneda = _monedas.firstWhere((m) => m.idMoneda == _monedaSeleccionada, orElse: () => _monedas.first);
     return moneda.simbolo;
   }
 
@@ -109,18 +185,78 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
         'tipo_transaccion': _tipoSeleccionado,
         'metodo_pago': _metodoSeleccionado,
         'moneda': _monedaSeleccionada,
-        if (_conceptoController.text.isNotEmpty) 'concepto': _conceptoController.text, 
-        if (_personaSeleccionada != null) 'persona': _personaSeleccionada, 
+        'fecha_registro': _fechaSeleccionada.toIso8601String(),
+        if (_conceptoController.text.isNotEmpty) 'concepto': _conceptoController.text else 'concepto': null, 
+        if (_personaSeleccionada != null) 'persona': _personaSeleccionada else 'persona': null, 
       };
 
-      bool exito = await _financeService.crearTransaccion(datos);
+      bool exito;
+      
+      // --- NUEVO: ¿CREAR O ACTUALIZAR? ---
+      if (_esEdicion) {
+        // Asegúrate de tener este método en tu FinanceService
+        exito = await _financeService.actualizarTransaccion(widget.transaccionAEditar!.idTransaccion, datos);
+      } else {
+        exito = await _financeService.crearTransaccion(datos);
+      }
 
       setState(() => _isSaving = false);
 
       if (exito && mounted) {
-        Navigator.pop(context, true); 
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF11998E), 
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            elevation: 10,
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 32),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        // Mensaje dinámico
+                        _esEdicion ? '¡Transacción Actualizada!' : '¡Transacción Guardada!', 
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)
+                      ),
+                      const SizedBox(height: 2),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        Navigator.pop(context, true);
+        
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al guardar.'), backgroundColor: Colors.redAccent));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _esEdicion ? 'Error al actualizar. Intenta de nuevo.' : 'Error al guardar. Intenta de nuevo.', 
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)
+                  ),
+                ),
+              ],
+            ),
+          )
+        );
       }
     }
   }
@@ -130,7 +266,8 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Nueva Operación', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        // Título dinámico
+        title: Text(_esEdicion ? 'Editar Operación' : 'Nueva Operación', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
         backgroundColor: Colors.transparent,
         foregroundColor: const Color(0xFF2D3142),
         elevation: 0,
@@ -145,7 +282,7 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 1. EL MONTO (Gigante)
+                      // 1. EL MONTO
                       const Center(child: Text('Monto de Transacción', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey))),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -167,7 +304,7 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
                       ),
                       const SizedBox(height: 40),
 
-                      // 2. MONEDA Y TIPO (Chips en la misma sección)
+                      // 2. MONEDA Y TIPO
                       const Text('Detalles Principales', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
                       const SizedBox(height: 16),
                       
@@ -212,7 +349,7 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
                       const Divider(color: Color(0xFFF0F0F0)),
                       const SizedBox(height: 16),
 
-                      // 3. CLASIFICACIÓN (Dropdowns)
+                      // 3. CLASIFICACIÓN
                       const Text('Clasificación', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
                       const SizedBox(height: 16),
                       
@@ -251,7 +388,14 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
                       const SizedBox(height: 32),
                       const Divider(color: Color(0xFFF0F0F0)),
                       const SizedBox(height: 16),
-
+                      ListTile(
+                        leading: const Icon(Icons.calendar_today, color: Color(0xFF11998E)),
+                        title: const Text('Fecha de transacción'),
+                        subtitle: Text(DateFormat('dd/MM/yyyy').format(_fechaSeleccionada)), 
+                        trailing: const Icon(Icons.edit, size: 20),
+                        onTap: () => _seleccionarFecha(context),
+                      ),
+                      
                       // 4. OTROS DETALLES
                       const Text('Otros Detalles', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
                       const SizedBox(height: 16),
@@ -298,7 +442,7 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
                       ),
                       const SizedBox(height: 40),
 
-                      // BOTÓN GUARDAR
+                      // BOTÓN GUARDAR / ACTUALIZAR
                       Container(
                         width: double.infinity,
                         height: 60,
@@ -316,7 +460,8 @@ class _CrearTransaccionScreenState extends State<CrearTransaccionScreen> {
                           onPressed: _isSaving ? null : _guardarTransaccion,
                           child: _isSaving
                               ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                              : const Text('Guardar Transacción', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                              // Texto del botón dinámico
+                              : Text(_esEdicion ? 'Actualizar Transacción' : 'Guardar Transacción', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                         ),
                       ),
                       const SizedBox(height: 24),

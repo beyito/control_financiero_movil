@@ -22,11 +22,18 @@ class _PerfilScreenState extends State<PerfilScreen> {
   }
 
   void _cargarPerfil() async {
-    final data = await _authService.getPerfil();
+    try {final data = await _authService.getPerfil();
+    if (!mounted) return;
     setState(() {
       _perfilData = data;
       _isLoading = false;
     });
+    } catch (e) {
+       if (mounted) {
+         setState(() => _isLoading = false);
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cargar perfil: $e')));
+        }
+    }
   }
 
   @override

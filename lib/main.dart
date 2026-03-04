@@ -29,6 +29,7 @@ class ControlFinancieroApp extends StatelessWidget {
       supportedLocales: const [
         Locale('es', 'ES'), // Español
         Locale('en', 'US'), // Inglés (por si acaso)
+        
       ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),

@@ -101,7 +101,10 @@ class _MovimientosCuentaScreenState extends State<MovimientosCuentaScreen> {
                         ),
                       ).then((value) {
                         if (value == true) {
-                          setState(() => _movimientosFuture = _service.getMovimientosPorCuenta(widget.cuenta.idCuentaCorriente));
+                          // LA CURA: Usar llaves {} en lugar de =>
+                          setState(() {
+                            _movimientosFuture = _service.getMovimientosPorCuenta(widget.cuenta.idCuentaCorriente);
+                          });
                         }
                       });
                     },
@@ -208,10 +211,10 @@ class _MovimientosCuentaScreenState extends State<MovimientosCuentaScreen> {
               MaterialPageRoute(builder: (context) => CrearMovimientoScreen(cuenta: widget.cuenta)),
             );
             if (resultado == true) {
-              setState(() => _movimientosFuture = _service.getMovimientosPorCuenta(widget.cuenta.idCuentaCorriente));
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Movimiento añadido'), backgroundColor: Color(0xFF38EF7D)));
-              }
+              // LA CURA: Usar llaves {} en lugar de =>
+              setState(() {
+                _movimientosFuture = _service.getMovimientosPorCuenta(widget.cuenta.idCuentaCorriente);
+              });
             }
           },
         ),

@@ -181,7 +181,15 @@ class _CuentasScreenState extends State<CuentasScreen> {
           label: const Text('Nueva Cuenta', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           onPressed: () async {
             final resultado = await Navigator.push(context, MaterialPageRoute(builder: (context) => const CrearCuentaScreen()));
-            if (resultado == true) setState(() => _cuentasFuture = _service.getCuentasCorrientes());
+
+            if (resultado == true) {
+              // LA CURA: Usar llaves {} en lugar de =>
+              setState(() {
+                _cuentasFuture = _service.getCuentasCorrientes();
+              });
+              
+       
+            }
           },
         ),
       ),

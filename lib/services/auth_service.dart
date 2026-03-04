@@ -66,8 +66,34 @@ class AuthService {
   }
 
   Future<bool> isLoggedIn() async {
+    // 1. Verificamos si existe el token guardado
     final refreshToken = await _storage.read(key: _refreshKey);
-    return refreshToken != null; 
+    
+    if (refreshToken == null) {
+      return false; // Directo al Login
+    }
+
+    // 2. Le preguntamos al endpoint Verify de Django si este token es válido
+    try {
+      final url = Uri.parse('${Config.apiUrl}token/verify/');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        // SimpleJWT acepta tanto el access como el refresh token para verificar
+        body: jsonEncode({'token': refreshToken}), 
+      );
+
+      if (response.statusCode == 200) {
+        return true; // El token pertenece a esta BD y está vivo
+      } else {
+        await logout(); // Token inválido (ej. cambiaste de BD). Lo borramos.
+        return false;
+      }
+    } catch (e) {
+      // Si hay un error de conexión (ej. no hay internet), 
+      // le permitimos entrar a la app para no cerrarle la sesión por un fallo de red.
+      return true; 
+    }
   }
 
   // Método para registrar un nuevo usuario

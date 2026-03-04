@@ -31,10 +31,55 @@ class _CrearPersonaScreenState extends State<CrearPersonaScreen> {
       setState(() => _isLoading = false);
 
       if (exito && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Persona añadida con éxito'), backgroundColor: Color(0xFF38EF7D)));
-        Navigator.pop(context, true); 
+        // --- SNACKBAR PREMIUM DE ÉXITO ---
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF11998E), // Tu verde principal
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            elevation: 10,
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 32),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('¡Persona añadida con éxito!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                      SizedBox(height: 2),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        Navigator.pop(context, true);
+        
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al guardar la persona.'), backgroundColor: Colors.redAccent));
+        // --- SNACKBAR DE ERROR (Opcional, por si falla el backend) ---
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white, size: 28),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text('Error al guardar la persona. Intenta de nuevo.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+          )
+        );
       }
     }
   }

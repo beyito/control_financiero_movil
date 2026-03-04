@@ -126,7 +126,10 @@ class _PersonasScreenState extends State<PersonasScreen> {
               MaterialPageRoute(builder: (context) => const CrearPersonaScreen()),
             );
             if (resultado == true) {
-              setState(() => _personasFuture = _service.getPersonas());
+              // LA CURA: Usar llaves {} en lugar de =>
+              setState(() {
+                _personasFuture = _service.getPersonas();
+              });
             }
           },
         ),

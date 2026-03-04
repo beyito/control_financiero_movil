@@ -43,8 +43,15 @@ class FinanceService {
     }
   }
   // Obtener todas las transacciones
-  Future<List<Transaccion>> getTransacciones() async {
-    final response = await _api.get('finance/transaccion/'); // Ajusta tu URL
+  Future<List<Transaccion>> getTransacciones({String? fechaInicio, String? fechaFin}) async {
+    String url = 'finance/transaccion/'; // Ajusta tu URL base
+    
+    // Si la pantalla nos mandó fechas, las agregamos a la petición
+    if (fechaInicio != null && fechaFin != null) {
+      url += '?fecha_inicio=$fechaInicio&fecha_fin=$fechaFin';
+    }
+
+    final response = await _api.get(url); 
     if (response.statusCode == 200) {
       List<dynamic> jsonList = jsonDecode(response.body);
       return jsonList.map((item) => Transaccion.fromJson(item)).toList();
@@ -66,6 +73,18 @@ class FinanceService {
     }
   }
 
+  Future<bool> actualizarTransaccion(int idTransaccion, Map<String, dynamic> datos) async {
+    // IMPORTANTE: Asegúrate de que esta URL acepte peticiones PUT/PATCH en tu Django
+    final response = await _api.patch('finance/transaccion/$idTransaccion/', datos);
+
+    // Django REST Framework devuelve 200 (OK) o 204 (No Content) cuando se actualiza con éxito
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return true;
+    } else {
+      print('Error al editar transacción: ${response.body}');
+      return false;
+    }
+  }
   // Método para obtener la lista de personas
   Future<List<Persona>> getPersonas() async {
     // IMPORTANTE: Ajusta esta ruta a la de tu backend. 
@@ -193,6 +212,31 @@ class FinanceService {
       return true;
     }
     return false;
+  }
+
+  // Obtener los saldos históricos de todas las monedas
+  Future<Map<int, double>> getSaldosGlobales() async {
+    // Asegúrate de que esta URL sea la de tu ResumenDashboardView
+    final response = await _api.get('finance/resumen/'); 
+    
+    if (response.statusCode == 200) {
+      Map<String, dynamic> data = jsonDecode(response.body);
+      Map<int, double> saldos = {};
+      
+      // Recorremos el JSON que nos mandó Django
+      data.forEach((key, value) {
+        // key es el ID de la moneda (ej. "1")
+        // value es el mapa interno con los totales
+        int idMoneda = int.parse(key);
+        double saldoHistorial = double.parse(value['saldo_global'].toString());
+        
+        saldos[idMoneda] = saldoHistorial;
+      });
+      
+      return saldos;
+    } else {
+      throw Exception('Error al cargar los saldos globales');
+    }
   }
 }
 

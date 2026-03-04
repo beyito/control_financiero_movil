@@ -38,13 +38,15 @@ class _CrearPagoScreenState extends State<CrearPagoScreen> {
   void _cargarDatos() async {
     try {
       final metodos = await _catalogoService.getMetodosPago();
+      if (!mounted) return;
       setState(() {
         _metodosPago = metodos;
         _isLoadingData = false;
       });
     } catch (e) {
-      setState(() => _isLoadingData = false);
+      
       if (mounted) {
+        setState(() => _isLoadingData = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cargar métodos de pago: $e')));
       }
     }
@@ -70,10 +72,55 @@ class _CrearPagoScreenState extends State<CrearPagoScreen> {
       setState(() => _isSaving = false);
 
       if (exito && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pago registrado con éxito'), backgroundColor: Color(0xFF38EF7D)));
-        Navigator.pop(context, true); 
+        // --- SNACKBAR PREMIUM DE ÉXITO ---
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF11998E), // Tu verde principal
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            elevation: 10,
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 32),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('¡Pago registrado con éxito!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                      SizedBox(height: 2),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        Navigator.pop(context, true);
+        
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al registrar el pago.'), backgroundColor: Colors.redAccent));
+        // --- SNACKBAR DE ERROR (Opcional, por si falla el backend) ---
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white, size: 28),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text('Error al registrar el pago. Intenta de nuevo.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+          )
+        );
       }
     }
   }

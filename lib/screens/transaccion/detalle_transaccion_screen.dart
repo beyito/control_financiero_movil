@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/finanzas/transaccion.dart'; 
 import '../../services/finance_service.dart'; 
+// Asegúrate de importar la pantalla que usaremos para editar:
+import 'crear_transaccion_screen.dart'; // O 'editar_transaccion_screen.dart' si creas una separada
 
 class DetalleTransaccionScreen extends StatelessWidget {
   final Transaccion transaccion;
@@ -40,6 +42,30 @@ class DetalleTransaccionScreen extends StatelessWidget {
         foregroundColor: const Color(0xFF2D3142),
         elevation: 0,
         actions: [
+          // --- NUEVO BOTÓN DE EDITAR ---
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, color: Color(0xFF2D3142)),
+            tooltip: 'Editar Transacción',
+            onPressed: () async {
+              // Aquí navegaremos a la pantalla de Crear/Editar, pasándole los datos actuales
+               final resultado = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CrearTransaccionScreen(
+                    transaccionAEditar: transaccion, // Le pasamos la transacción
+                  ),
+                ),
+              );
+
+              // Si se guardaron los cambios correctamente, cerramos este detalle 
+              // para que el Dashboard se recargue y muestre los datos frescos.
+              if (resultado == true && context.mounted) {
+                Navigator.pop(context, true); 
+              }
+            },
+          ),
+          
+          // --- BOTÓN DE ELIMINAR (Se mantiene igual) ---
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
             tooltip: 'Anular Transacción',
@@ -66,10 +92,66 @@ class DetalleTransaccionScreen extends StatelessWidget {
                 bool exito = await service.eliminarTransaccion(transaccion.idTransaccion);
 
                 if (exito && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transacción anulada'), backgroundColor: Color(0xFF38EF7D)));
-                  Navigator.pop(context, true);
+                  // --- SNACKBAR PREMIUM DE ÉXITO ---
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating, 
+                      backgroundColor: const Color(0xFF11998E), 
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), 
+                      margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20), 
+                      elevation: 10, 
+                      content: const Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white, size: 32),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('¡Operación Exitosa!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                                SizedBox(height: 2),
+                                Text('La transacción ha sido anulada.', style: TextStyle(fontSize: 13, color: Colors.white)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                  
+                  Navigator.pop(context, true); 
+                  
                 } else if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al anular'), backgroundColor: Colors.redAccent));
+                  // --- SNACKBAR PREMIUM DE ERROR ---
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: Colors.redAccent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+                      elevation: 10,
+                      content: const Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.white, size: 32),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Ocurrió un problema', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                                SizedBox(height: 2),
+                                Text('No se pudo anular la transacción.', style: TextStyle(fontSize: 13, color: Colors.white)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      duration: const Duration(seconds: 4),
+                    ),
+                  );
                 }
               }
             },
@@ -136,7 +218,6 @@ class DetalleTransaccionScreen extends StatelessWidget {
                   _buildDetailRow(
                     Icons.category_outlined, 
                     'Categoría', 
-                    // Mostramos Padre -> Hijo
                     '${transaccion.categoriaPadreNombre ?? "General"}  >  ${transaccion.subcategoriaNombre ?? "Sin categoría"}'
                   ),
                   const Divider(height: 32, color: Color(0xFFF0F0F0)),

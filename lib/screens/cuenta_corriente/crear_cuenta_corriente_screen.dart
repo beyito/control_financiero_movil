@@ -37,7 +37,7 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
         _financeService.getPersonas(),
         _catalogoService.getMonedas(),
       ]);
-
+      if (!mounted) return;
       setState(() {
         _personas = respuestas[0] as List<Persona>;
         _monedas = respuestas[1] as List<Moneda>;
@@ -45,15 +45,33 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
         _isLoadingData = false;
       });
     } catch (e) {
-      setState(() => _isLoadingData = false);
+      if (mounted) {
+        setState(() => _isLoadingData = false);
+      }
     }
   }
 
   void _guardarCuenta() async {
     if (_formKey.currentState!.validate()) {
       if (_personaSeleccionada == null || _monedaSeleccionada == null) {
+        // --- SNACKBAR DE ADVERTENCIA MEJORADO ---
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Por favor, selecciona persona y moneda'), backgroundColor: Colors.orange)
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.orange.shade700,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            elevation: 8,
+            content: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.white, size: 28),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text('Por favor, selecciona persona y moneda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+          )
         );
         return;
       }
@@ -70,10 +88,56 @@ class _CrearCuentaScreenState extends State<CrearCuentaScreen> {
       setState(() => _isSaving = false);
 
       if (exito && mounted) {
+        // --- SNACKBAR PREMIUM DE ÉXITO ---
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cuenta creada exitosamente'), backgroundColor: Color(0xFF11998E))
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF11998E), // Tu verde principal
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            elevation: 10,
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 32),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('¡Cuenta Creada!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                      SizedBox(height: 2),
+                      Text('Se vinculó correctamente a la persona.', style: TextStyle(fontSize: 13, color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+          ),
         );
+        
         Navigator.pop(context, true);
+        
+      } else if (mounted) {
+        // --- SNACKBAR DE ERROR (Opcional, por si falla el backend) ---
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white, size: 28),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text('Error al crear la cuenta. Intenta de nuevo.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+          )
+        );
       }
     }
   }

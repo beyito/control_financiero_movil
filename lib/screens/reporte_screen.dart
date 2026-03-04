@@ -63,7 +63,7 @@ class _ReportesScreenState extends State<ReportesScreen> {
         _catalogoService.getSubCategorias(),
         _financeService.getPersonas(),
       ]);
-
+      if (!mounted) return;
       setState(() {
         _todasLasTransacciones = respuestas[0] as List<Transaccion>;
         _monedas = respuestas[1] as List<Moneda>;
@@ -79,7 +79,9 @@ class _ReportesScreenState extends State<ReportesScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

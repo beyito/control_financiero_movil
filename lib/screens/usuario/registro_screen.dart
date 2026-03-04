@@ -45,7 +45,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
     }
   }
 
-  void _registrar() async {
+void _registrar() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
@@ -63,13 +63,65 @@ class _RegistroScreenState extends State<RegistroScreen> {
       setState(() => _isLoading = false);
 
       if (exitoso && mounted) {
+        // --- SNACKBAR PREMIUM DE BIENVENIDA (ÉXITO) ---
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('¡Cuenta creada! Inicia sesión ahora.'), backgroundColor: Color(0xFF38EF7D)),
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF11998E), // Verde principal de tu app
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            elevation: 10,
+            content: const Row(
+              children: [
+                Icon(Icons.celebration, color: Colors.white, size: 32),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('¡Bienvenido!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                      SizedBox(height: 2),
+                      Text('Cuenta creada con éxito. Ya puedes iniciar sesión.', style: TextStyle(fontSize: 13, color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 4),
+          ),
         );
-        Navigator.pop(context);
+        
+        Navigator.pop(context); // Lo mandamos de vuelta al Login
+        
       } else if (mounted) {
+        // --- SNACKBAR PREMIUM DE ERROR ---
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error al crear la cuenta. El usuario podría existir.'), backgroundColor: Colors.redAccent),
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            elevation: 10,
+            content: const Row(
+              children: [
+                Icon(Icons.person_off_outlined, color: Colors.white, size: 32),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('No se pudo registrar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                      SizedBox(height: 2),
+                      Text('Es posible que el nombre de usuario ya exista. Intenta con otro.', style: TextStyle(fontSize: 13, color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     }

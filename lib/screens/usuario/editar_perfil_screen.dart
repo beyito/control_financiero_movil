@@ -83,9 +83,55 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       setState(() => _isSaving = false);
 
       if (exito && mounted) {
-        Navigator.pop(context, true); 
+        // --- SNACKBAR PREMIUM DE ÉXITO ---
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF11998E), // Tu verde principal
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            elevation: 10,
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 32),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('¡Perfil Actualizado Exitósamente!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                      SizedBox(height: 2),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        Navigator.pop(context, true);
+        
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al actualizar el perfil'), backgroundColor: Colors.redAccent));
+        // --- SNACKBAR DE ERROR (Opcional, por si falla el backend) ---
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white, size: 28),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text('Error al actualizar el perfil. Intenta de nuevo.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+          )
+        );
       }
     }
   }
