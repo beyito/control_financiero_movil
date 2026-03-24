@@ -1,7 +1,7 @@
 import 'package:control_financiero/services/catalogo_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/finance_service.dart';
+import '../services/finance_service.dart'; 
 import '../models/catalogos/moneda.dart'; 
 import '../models/finanzas/transaccion.dart'; 
 import 'transaccion/crear_transaccion_screen.dart'; 
@@ -10,7 +10,7 @@ import 'usuario/login_screen.dart';
 import 'transaccion/detalle_transaccion_screen.dart'; 
 import 'usuario/perfil_screen.dart'; 
 import 'dictado_screen.dart';
-import 'dart:io'; // <-- AGREGA ESTA LÍNEA AQUÍ ARRIBA
+import 'dart:io';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -23,17 +23,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final FinanceService _financeService = FinanceService();
   final CatalogoService _catalogoService = CatalogoService();
   final PageController _pageController = PageController(viewportFraction: 0.92);
-  bool _esPrimeraCarga = true;
+  
+  // --- VARIABLES DE PAGINACIÓN ---
+  final ScrollController _scrollController = ScrollController();
+  int _paginaActual = 1;
+  bool _hayMasPaginas = true;
+  bool _isCargandoMas = false; 
 
-  bool _isLoading = true;
+  bool _esPrimeraCarga = true;
+  bool _isLoading = true; // Controla la carga GIGANTE inicial
+  bool _isFetchingTransacciones = false; // Controla solo la carga de la lista al cambiar filtros
+  
   List<Moneda> _monedas = [];
   List<Transaccion> _transaccionesFiltradas = []; 
-  Map<int, double> _saldosGlobales = {}; // <-- NUEVA VARIABLE PARA LOS SALDOS HISTÓRICOS
+  Map<int, double> _saldosGlobales = {}; 
   int _indiceMonedaActual = 0;
 
+  // --- TOTALES GLOBALES (Vienen del Backend) ---
+  double _totalIngresosGlobal = 0.0;
+  double _totalEgresosGlobal = 0.0;
+
   // --- VARIABLES PARA EL FILTRO ---
-  String _filtroTiempo = 'Esta Semana';
-  final List<String> _opcionesFiltro = ['Esta Semana', 'Este Mes', 'Mes Anterior', 'Todas'];
+  String _filtroTiempo = 'Hoy'; 
+  final List<String> _opcionesFiltro = ['Hoy', 'Esta Semana', 'Este Mes', 'Mes Anterior', 'Todas'];
 
   // Paleta de degradados
   final List<List<Color>> _cardGradients = [
@@ -47,6 +59,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _cargarDatos();
+
+    // --- ESCUCHADOR DE SCROLL INFINITO ---
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+        _cargarMasTransacciones();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _pageController.dispose();
+    super.dispose();
   }
 
   // --- LÓGICA DE FECHAS PARA EL BACKEND ---
@@ -54,7 +80,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final ahora = DateTime.now();
     DateFormat formato = DateFormat('yyyy-MM-dd'); 
 
-    if (_filtroTiempo == 'Esta Semana') {
+    if (_filtroTiempo == 'Hoy') {
+      return {'inicio': formato.format(ahora), 'fin': formato.format(ahora)};
+    } else if (_filtroTiempo == 'Esta Semana') {
       final inicio = ahora.subtract(const Duration(days: 7));
       return {'inicio': formato.format(inicio), 'fin': formato.format(ahora)};
     } else if (_filtroTiempo == 'Este Mes') {
@@ -68,115 +96,135 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final fin = DateTime(anioAnt, mesAnt + 1, 0);
       return {'inicio': formato.format(inicio), 'fin': formato.format(fin)};
     }
+    
     return {'inicio': null, 'fin': null}; 
   }
 
-
-// --- MAGIA: DETECCIÓN DE MONEDA LOCAL ---
-  // --- MAGIA: DETECCIÓN DE MONEDA LOCAL ---
-// --- MAGIA: DETECCIÓN DE MONEDA LOCAL ---
+  // --- DETECCIÓN DE MONEDA LOCAL ---
   String _obtenerSimboloMonedaLocal() {
     try {
-      final String localeName = Platform.localeName; // Ej: "es_US" o "en_US"
-      
-      // Dividimos el texto en dos partes usando el guion bajo
+      final String localeName = Platform.localeName; 
       final List<String> partes = localeName.split('_');
-      final String codigoIdioma = partes.first.toLowerCase(); // "es" o "en"
-      final String codigoPais = partes.last.toUpperCase();    // "US"
+      final String codigoIdioma = partes.first.toLowerCase(); 
+      final String codigoPais = partes.last.toUpperCase();    
 
       switch (codigoPais) {
-        case 'BO': 
-          return 'Bs'; 
-        case 'ES': 
-          return '€';  
-        case 'US': 
-          // LA CONDICIÓN QUE PEDISTE: Verificamos el idioma si estamos en US
-          if (codigoIdioma == 'es') {
-            return 'Bs'; // Si es Español (es_US), devolvemos Bolivianos
-          } else {
-            return '\$'; // Si es Inglés (en_US), devolvemos Dólares
-          }
-        default: 
-          return 'Bs';   
+        case 'BO': return 'Bs'; 
+        case 'ES': return '€';  
+        case 'US': return codigoIdioma == 'es' ? 'Bs' : '\$'; 
+        default: return 'Bs';   
       }
     } catch (e) {
       return 'Bs'; 
     }
   }
 
-  
+  // --- CARGA INICIAL Y REFRESH ---
   Future<void> _cargarDatos() async {
+    setState(() {
+      // MAGIA AQUÍ: Solo hacemos loading gigante si no hay monedas. 
+      // Si ya hay monedas (ej. giramos tarjeta), solo mostramos loading en la lista abajo.
+      if (_monedas.isEmpty) {
+        _isLoading = true;
+      } else {
+        _isFetchingTransacciones = true; 
+      }
+      _paginaActual = 1;
+      _hayMasPaginas = true;
+    });
+
     try {
       final fechas = _obtenerRangoFechas();
 
-      final respuestas = await Future.wait([
-        _catalogoService.getMonedas(),
-        _financeService.getTransacciones(fechaInicio: fechas['inicio'], fechaFin: fechas['fin']),
-        _financeService.getSaldosGlobales(), 
-      ]);
-
-      // --- LA CURA MÁGICA ---
-      // Si el usuario se fue a otra pestaña mientras cargaba, cancelamos todo y no hacemos el setState.
-      if (!mounted) return;
-
-      setState(() {
-        _monedas = respuestas[0] as List<Moneda>;
-        _transaccionesFiltradas = respuestas[1] as List<Transaccion>;
-        _saldosGlobales = respuestas[2] as Map<int, double>; 
-
-        if (_esPrimeraCarga && _monedas.isNotEmpty) {
+      if (_monedas.isEmpty) {
+        _monedas = await _catalogoService.getMonedas();
+        if (_monedas.isNotEmpty) {
           final simboloLocal = _obtenerSimboloMonedaLocal(); 
-          
           final int indexEncontrado = _monedas.indexWhere((m) => m.simbolo.contains(simboloLocal) || m.nombre.contains(simboloLocal));
 
           if (indexEncontrado != -1 && indexEncontrado != 0) {
             _indiceMonedaActual = indexEncontrado;
-            
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (_pageController.hasClients) {
                 _pageController.jumpToPage(indexEncontrado);
               }
             });
           }
-          
           _esPrimeraCarga = false; 
         }
+      }
 
+      if (_monedas.isEmpty) {
+         if (mounted) setState(() { _isLoading = false; _isFetchingTransacciones = false; });
+         return;
+      }
+
+      final respuestas = await Future.wait([
+        _financeService.getTransacciones(
+          fechaInicio: fechas['inicio'], 
+          fechaFin: fechas['fin'], 
+          page: _paginaActual,
+          monedaId: _monedas[_indiceMonedaActual].idMoneda, 
+        ),
+        _financeService.getSaldosGlobales(), 
+      ]);
+
+      if (!mounted) return;
+
+      setState(() {
+        final paginatedData = respuestas[0] as PaginatedTransacciones;
+        _transaccionesFiltradas = paginatedData.transacciones;
+        _hayMasPaginas = paginatedData.nextUrl != null;
+
+        _totalIngresosGlobal = paginatedData.totalIngresos;
+        _totalEgresosGlobal = paginatedData.totalEgresos;
+
+        _saldosGlobales = respuestas[1] as Map<int, double>; 
+        
         if (_indiceMonedaActual >= _monedas.length) {
           _indiceMonedaActual = _monedas.isNotEmpty ? _monedas.length - 1 : 0;
         }
 
         _isLoading = false; 
+        _isFetchingTransacciones = false; // Ocultamos el spinner de la lista
       });
     } catch (e) {
-      // --- TAMBIÉN DEBEMOS PROTEGER EL CATCH ---
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() { _isLoading = false; _isFetchingTransacciones = false; });
     }
   }
 
-  // --- CÁLCULOS (Filtrados por Moneda Actual) ---
-  List<Transaccion> get _transaccionesMonedaActual {
-    if (_monedas.isEmpty) return [];
-    return _transaccionesFiltradas.where((t) => t.monedaId == _monedas[_indiceMonedaActual].idMoneda).toList();
+  // --- CARGAR PÁGINAS SIGUIENTES (SCROLL INFINITO) ---
+  Future<void> _cargarMasTransacciones() async {
+    if (_isCargandoMas || !_hayMasPaginas || _monedas.isEmpty) return;
+
+    setState(() => _isCargandoMas = true);
+    _paginaActual++;
+
+    try {
+      final fechas = _obtenerRangoFechas();
+      final nuevasTransacciones = await _financeService.getTransacciones(
+        fechaInicio: fechas['inicio'], 
+        fechaFin: fechas['fin'], 
+        page: _paginaActual,
+        monedaId: _monedas[_indiceMonedaActual].idMoneda,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _transaccionesFiltradas.addAll(nuevasTransacciones.transacciones);
+        _hayMasPaginas = nuevasTransacciones.nextUrl != null;
+        _isCargandoMas = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _isCargandoMas = false);
+    }
   }
 
-  double get _totalEntradas {
-    return _transaccionesMonedaActual
-        .where((t) => (t.tipoTransaccionNombre ?? '').toLowerCase().contains('ingreso') || 
-                      (t.tipoTransaccionNombre ?? '').toLowerCase().contains('entrada'))
-        .fold(0.0, (sum, item) => sum + item.monto);
-  }
+  // --- CÁLCULOS (Usan los datos directos del Backend) ---
+  double get _totalEntradas => _totalIngresosGlobal;
+  double get _totalSalidas => _totalEgresosGlobal;
 
-  double get _totalSalidas {
-    return _transaccionesMonedaActual
-        .where((t) => (t.tipoTransaccionNombre ?? '').toLowerCase().contains('egreso') || 
-                      (t.tipoTransaccionNombre ?? '').toLowerCase().contains('salida'))
-        .fold(0.0, (sum, item) => sum + item.monto);
-  }
-
-  // --- EL SALDO GLOBAL AHORA VIENE DIRECTO DE LA BASE DE DATOS ---
   double get _saldoGlobal {
     if (_monedas.isEmpty) return 0.0;
     final idMoneda = _monedas[_indiceMonedaActual].idMoneda;
@@ -217,8 +265,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final listaMostrar = _transaccionesMonedaActual; 
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
@@ -252,6 +298,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: const Color(0xFF11998E), 
               backgroundColor: Colors.white,
               child: ListView(
+                controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(), 
                 padding: const EdgeInsets.only(bottom: 100), 
                 children: [
@@ -263,7 +310,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ? const Center(child: Text('No hay monedas registradas', style: TextStyle(color: Colors.grey)))
                         : PageView.builder(
                             controller: _pageController,
-                            onPageChanged: (index) => setState(() => _indiceMonedaActual = index),
+                            onPageChanged: (index) {
+                              if (_indiceMonedaActual != index) {
+                                setState(() => _indiceMonedaActual = index);
+                                _cargarDatos(); 
+                              }
+                            },
                             itemCount: _monedas.length,
                             itemBuilder: (context, index) {
                               final moneda = _monedas[index];
@@ -313,8 +365,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // --- LISTA DE TRANSACCIONES ---
-                  if (listaMostrar.isEmpty)
+                  // --- LISTA DE TRANSACCIONES O SPINNER SECUNDARIO ---
+                  if (_isFetchingTransacciones)
+                    const SizedBox(
+                      height: 200, 
+                      child: Center(
+                        child: CircularProgressIndicator(color: Color(0xFF11998E))
+                      ),
+                    )
+                  else if (_transaccionesFiltradas.isEmpty)
                     SizedBox(
                       height: 200, 
                       child: Center(
@@ -333,9 +392,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       shrinkWrap: true, 
                       physics: const NeverScrollableScrollPhysics(), 
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: listaMostrar.length, 
+                      itemCount: _transaccionesFiltradas.length, 
                       itemBuilder: (context, index) {
-                        final tx = listaMostrar[index]; 
+                        final tx = _transaccionesFiltradas[index]; 
                         final esIngreso = (tx.tipoTransaccionNombre ?? '').toLowerCase().contains('ingreso') || 
                                           (tx.tipoTransaccionNombre ?? '').toLowerCase().contains('entrada');
                         final fecha = tx.fechaRegistro != null ? DateFormat('dd MMM, HH:mm').format(tx.fechaRegistro!) : '';
@@ -350,7 +409,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                             onTap: () async {
-                              // 1. Agregamos 'await' para esperar a que la pantalla de detalle se cierre
                               final resultado = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -361,7 +419,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               );
 
-                              // 2. Si el detalle nos devuelve 'true' (porque eliminó la transacción), recargamos
                               if (resultado == true) {
                                 _cargarDatos();
                               }
@@ -380,14 +437,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Text(fecha, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w500)),
                             ),
-                            // ... código anterior del ListTile (leading, title, subtitle) ...
-                            
                             trailing: Column(
-                              mainAxisSize: MainAxisSize.min, // <-- Súper importante para que no rompa el ListTile
+                              mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.end,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                // 1. EL MONTO (Como ya lo tenías)
                                 Text(
                                   '${esIngreso ? '+' : '-'}${_monedas[_indiceMonedaActual].simbolo} ${tx.monto.toStringAsFixed(2)}',
                                   style: TextStyle(
@@ -396,8 +450,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     color: esIngreso ? const Color(0xFF11998E) : const Color(0xFFFF5252)
                                   ),
                                 ),
-                                
-                                // 2. LA PERSONA (Solo se dibuja si existe)
                                 if (tx.personaNombre != null && tx.personaNombre!.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Row(
@@ -421,6 +473,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         );
                       },
+                    ),
+
+                  // --- SPINNER DE CARGA AL FINAL ---
+                  if (_isCargandoMas)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: CircularProgressIndicator(color: Color(0xFF11998E)),
+                      ),
                     ),
                 ],
               ),
@@ -459,7 +520,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               highlightElevation: 0,
               child: const Icon(Icons.add, color: Colors.white, size: 28),
               onPressed: () async {
-                // 1. Obtenemos el ID de la moneda que el usuario está viendo en el Dashboard
                 int? idMonedaActual;
                 if (_monedas.isNotEmpty) {
                   idMonedaActual = _monedas[_indiceMonedaActual].idMoneda;
@@ -469,7 +529,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   context, 
                   MaterialPageRoute(
                     builder: (context) => CrearTransaccionScreen(
-                      idMonedaPredeterminada: idMonedaActual, // 2. SE LO PASAMOS AQUÍ
+                      idMonedaPredeterminada: idMonedaActual, 
                     )
                   )
                 );
@@ -482,7 +542,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- DISEÑO PREMIUM DE LA TARJETA DE SALDO ---
   Widget _construirTarjetaSaldo(Moneda moneda, List<Color> gradientColors) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -499,7 +558,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('SALDO TOTAL', style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.w600)),
+              Text('BALANCE DEL PERIODO', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.w600)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),

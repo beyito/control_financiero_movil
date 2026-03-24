@@ -6,6 +6,20 @@ import '../models/catalogos/tipo_movimiento.dart'; // Importamos los modelos que
 import '../models/persona.dart';
 import 'api_service.dart';
 
+class PaginatedTransacciones {
+  final List<Transaccion> transacciones;
+  final String? nextUrl;
+  final double totalIngresos; // <-- NUEVO
+  final double totalEgresos;  // <-- NUEVO
+
+  PaginatedTransacciones({
+    required this.transacciones, 
+    this.nextUrl,
+    this.totalIngresos = 0.0,
+    this.totalEgresos = 0.0,
+  });
+}
+
 class DashboardData {
   final double saldoGlobal;
   final List<Transaccion> transacciones;
@@ -43,22 +57,43 @@ class FinanceService {
     }
   }
   // Obtener todas las transacciones
-  Future<List<Transaccion>> getTransacciones({String? fechaInicio, String? fechaFin}) async {
-    String url = 'finance/transaccion/'; // Ajusta tu URL base
-    
-    // Si la pantalla nos mandó fechas, las agregamos a la petición
-    if (fechaInicio != null && fechaFin != null) {
-      url += '?fecha_inicio=$fechaInicio&fecha_fin=$fechaFin';
-    }
+  Future<PaginatedTransacciones> getTransacciones({
+    int page = 1,
+    String? fechaInicio, 
+    String? fechaFin,
+    int? monedaId,
+    int? tipoId,
+    int? personaId,
+    int? categoriaId,
+    int? subcategoriaId,
+  }) async {
+    // Armamos la URL con todos los filtros posibles
+    String url = 'finance/transaccion/?page=$page'; 
+    if (fechaInicio != null && fechaFin != null) url += '&fecha_inicio=$fechaInicio&fecha_fin=$fechaFin';
+    if (monedaId != null) url += '&moneda=$monedaId';
+    if (tipoId != null) url += '&tipo_transaccion=$tipoId';
+    if (personaId != null) url += '&persona=$personaId';
+    if (categoriaId != null) url += '&categoria=$categoriaId';
+    if (subcategoriaId != null) url += '&subcategoria=$subcategoriaId';
 
     final response = await _api.get(url); 
     if (response.statusCode == 200) {
-      List<dynamic> jsonList = jsonDecode(response.body);
-      return jsonList.map((item) => Transaccion.fromJson(item)).toList();
+      Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+      
+      List<dynamic> jsonList = jsonResponse['results'];
+      List<Transaccion> list = jsonList.map((item) => Transaccion.fromJson(item)).toList();
+      
+      return PaginatedTransacciones(
+        transacciones: list, 
+        nextUrl: jsonResponse['next'],
+        totalIngresos: (jsonResponse['total_ingresos'] ?? 0).toDouble(), // <-- LEEMOS EL TOTAL
+        totalEgresos: (jsonResponse['total_egresos'] ?? 0).toDouble(),   // <-- LEEMOS EL TOTAL
+      );
     } else {
       throw Exception('Error al cargar transacciones');
     }
   }
+  
   // Método para crear una nueva transacción
   Future<bool> crearTransaccion(Map<String, dynamic> datos) async {
     // IMPORTANTE: Asegúrate de que esta URL acepte peticiones POST en tu Django
@@ -175,13 +210,17 @@ class FinanceService {
     }
   }
 
-  // Obtener transacciones de un movimiento específico
+// Obtener transacciones de un movimiento específico
   Future<List<Transaccion>> getTransaccionesPorMovimiento(int idMovimiento) async {
-    // Django REST Framework permite filtrar si lo configuras, ej: ?movimiento_cuenta=1
     final response = await _api.get('finance/transaccion/?movimiento_cuenta=$idMovimiento'); 
     
     if (response.statusCode == 200) {
-      List<dynamic> jsonList = jsonDecode(response.body);
+      // 1. Decodificamos la respuesta como un Mapa
+      Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+      
+      // 2. Extraemos la lista de la llave "results" (Por la paginación)
+      List<dynamic> jsonList = jsonResponse['results']; 
+      
       return jsonList.map((item) => Transaccion.fromJson(item)).toList();
     } else {
       throw Exception('Error al cargar pagos del movimiento');

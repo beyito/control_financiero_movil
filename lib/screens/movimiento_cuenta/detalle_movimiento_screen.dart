@@ -5,6 +5,8 @@ import '../../models/finanzas/movimiento_cuenta.dart';
 import '../../models/finanzas/transaccion.dart';
 import '../../services/finance_service.dart';
 import 'crear_pago_screen.dart'; 
+// --- IMPORTAMOS LA PANTALLA DE DETALLE ---
+import '../transaccion/detalle_transaccion_screen.dart';
 
 class DetalleMovimientoScreen extends StatefulWidget {
   final CuentaCorriente cuenta;
@@ -32,7 +34,6 @@ class _DetalleMovimientoScreenState extends State<DetalleMovimientoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Cálculos para la barra de progreso
     final double totalPagado = widget.movimiento.montoInicial - widget.movimiento.saldoPendiente;
     double porcentajePagado = 0.0;
     if (widget.movimiento.montoInicial > 0) {
@@ -41,7 +42,7 @@ class _DetalleMovimientoScreenState extends State<DetalleMovimientoScreen> {
     final bool estaPagado = widget.movimiento.saldoPendiente <= 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // Fondo claro
+      backgroundColor: const Color(0xFFF8F9FA), 
       appBar: AppBar(
         title: const Text('Detalle de Movimiento', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
         backgroundColor: Colors.transparent,
@@ -73,56 +74,52 @@ class _DetalleMovimientoScreenState extends State<DetalleMovimientoScreen> {
                 bool exito = await _service.eliminarMovimiento(widget.movimiento.idMovimientoCuenta);
 
                 if (exito && context.mounted) {
-        // --- SNACKBAR PREMIUM DE ÉXITO ---
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFF11998E), // Tu verde principal
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
-            elevation: 10,
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 32),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('¡Movimiento a sido Eliminado!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-                      SizedBox(height: 2),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-        
-        Navigator.pop(context, true);
-        
-      } else if (context.mounted) {
-        // --- SNACKBAR DE ERROR (Opcional, por si falla el backend) ---
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
-            content: const Row(
-              children: [
-                Icon(Icons.error_outline, color: Colors.white, size: 28),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text('Error al eliminar el movimiento. Intenta de nuevo.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                ),
-              ],
-            ),
-          )
-        );
-      }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: const Color(0xFF11998E), 
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+                      elevation: 10,
+                      content: const Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white, size: 32),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('¡Movimiento eliminado!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                                SizedBox(height: 2),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                  Navigator.pop(context, true);
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: Colors.redAccent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      margin: const EdgeInsets.only(bottom: 30, left: 20, right: 20),
+                      content: const Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.white, size: 28),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text('Error al eliminar el movimiento. Intenta de nuevo.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    )
+                  );
+                }
               }
             },
           ),
@@ -224,33 +221,53 @@ class _DetalleMovimientoScreenState extends State<DetalleMovimientoScreen> {
                       
                       final esIngreso = pago.tipoTransaccionNombre?.toLowerCase().contains('ingreso') ?? false;
 
-                      return Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: esIngreso ? Colors.green.shade50 : Colors.red.shade50,
-                              shape: BoxShape.circle,
+                      // --- AQUÍ ESTÁ LA MAGIA DEL TOQUE ---
+                      return InkWell(
+                        onTap: () async {
+                          final resultado = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DetalleTransaccionScreen(
+                                transaccion: pago,
+                                simboloMoneda: widget.cuenta.monedaSimbolo ?? '\$',
+                              ),
                             ),
-                            child: Icon(esIngreso ? Icons.arrow_downward : Icons.arrow_upward, 
-                                color: esIngreso ? Colors.green : Colors.red, size: 20),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(pago.subcategoriaNombre ?? 'Pago', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2D3142))),
-                                const SizedBox(height: 4),
-                                Text(fecha, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                              ],
+                          );
+                          // Si editó o borró, recargamos la lista
+                          if (resultado == true) {
+                            setState(() {
+                              _cargarPagos();
+                            });
+                          }
+                        },
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: esIngreso ? Colors.green.shade50 : Colors.red.shade50,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(esIngreso ? Icons.arrow_downward : Icons.arrow_upward, 
+                                  color: esIngreso ? Colors.green : Colors.red, size: 20),
                             ),
-                          ),
-                          Text(
-                            '${esIngreso ? '+' : '-'}${widget.cuenta.monedaSimbolo} ${pago.monto.toStringAsFixed(2)}',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: esIngreso ? Colors.green : Colors.red),
-                          ),
-                        ],
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(pago.subcategoriaNombre ?? 'Pago', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2D3142))),
+                                  const SizedBox(height: 4),
+                                  Text(fecha, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '${esIngreso ? '+' : '-'}${widget.cuenta.monedaSimbolo} ${pago.monto.toStringAsFixed(2)}',
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: esIngreso ? Colors.green : Colors.red),
+                            ),
+                          ],
+                        ),
                       );
                     },
                   );
@@ -263,7 +280,7 @@ class _DetalleMovimientoScreenState extends State<DetalleMovimientoScreen> {
       floatingActionButton: widget.movimiento.saldoPendiente > 0 
         ? Container(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF11998E), Color(0xFF38EF7D)]), // Verde Neón
+              gradient: const LinearGradient(colors: [Color(0xFF11998E), Color(0xFF38EF7D)]), 
               borderRadius: BorderRadius.circular(30),
               boxShadow: [BoxShadow(color: const Color(0xFF11998E).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))],
             ),
